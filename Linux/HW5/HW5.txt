@@ -1,0 +1,74 @@
+iptables
+1. Настроить iptables: разрешить подключения только на 22-й и 80-й порты.
+2. Настроить проброс портов локально с порта 80 на порт 8080.
+3. Запретить любой входящий трафик с IP-адреса 3.4.5.6.
+
+Сигналы процессам
+4. Запустите mc. Используя ps, найдите PID процесса, завершите процесс, передав ему сигнал 9.
+
+iptables
+1. Настроить iptables: разрешить подключения только на 22-й и 80-й порты.
+заходим под рутом
+serg@serg-VirtualBox:~$ sudo su
+[sudo] password for serg:
+
+смотрим текущие правила
+root@serg-VirtualBox:/home/serg# iptables -L
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+
+разрешаем подключение на порты 22 и 80
+root@serg-VirtualBox:/home/serg# iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+root@serg-VirtualBox:/home/serg# iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+
+блокируем все остальные пакеты
+root@serg-VirtualBox:/home/serg# iptables -A INPUT -j DROP
+
+проверяем
+root@serg-VirtualBox:/etc/iptables# iptables -L
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:ssh
+ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:http
+DROP       all  --  anywhere             anywhere
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+
+разрешаем все исходящие соединения
+root@serg-VirtualBox:/etc/iptables# iptables -A OUTPUT -m state --stete ESTABLISHED,RELATED -j ACCEPT
+--------------------------------------------------------------------------------------
+2. Настроить проброс портов локально с порта 80 на порт 8080
+root@serg-VirtualBox:/etc/iptables# iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8080
+
+---------------------------------------------------------------
+3. Запретить любой входящий трафик с IP-адреса 3.4.5.6
+
+root@serg-VirtualBox:/etc/iptables# iptables -t filter -A INPUT -s 192.168.56.1 -j DROP
+-------------------------------------------------------------------------
+-------------------------------------------------------------------------
+
+Сигналы процессам
+4. Запустите mc. Используя ps, найдите PID процесса, завершите процесс, передав ему сигнал 9
+
+запускаем 
+root@serg-VirtualBox:/etc/iptables# mc
+
+Ищем PID процесс MC
+root@serg-VirtualBox:/etc/iptables# ps aux | grep mc
+serg        2567  0.0  0.3 163480  7424 ?        Sl   13:19   0:00 /usr/libexec/ibus-memconf
+root        3735  0.0  0.4  22820  9984 pts/3    S+   13:51   0:00 mc
+root        3768  0.0  0.1   9212  2560 pts/1    S+   13:52   0:00 grep --color=auto mc
+
+Останавливаем MC 
+root@serg-VirtualBox:/etc/iptables# kill -9 3735
+

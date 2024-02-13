@@ -1,0 +1,153 @@
+6. Запуск стека для веб-приложения
+Задание:
+1. Установить Nginx
+2. * настроить Nginx на работу с PHP-FPM.
+3. Установить Apache.
+4. * Настроить обработку PHP. Добиться одновременной работы с Nginx.
+5. Настроить схему обратного прокси для Nginx (динамика - на Apache).
+6. Установить MySQL. Создать новую базу данных и таблицу в ней.
+7. * Установить пакет phpmyadmin и запустить его веб-интерфейс для управления MySQL.
+
+Результат:
+Текст команд, которые применялись при выполнении задания. При наличии: часть конфигурационных файлов, 
+которые решают задачу. Присылаем в формате текстового документа: задание и команды для решения (без вывода и без скриншотов).
+
+Меняем пользователя на РУТа
+
+serg@serg-VirtualBox:~$ sudo su
+[sudo] password for serg:
+
+1. Установить Nginx
+root@serg-VirtualBox:/home/serg# apt install nginx -y
+ проверяем статус 
+root@serg-VirtualBox:/home/serg# systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
+     Active: active (running) since Tue 2023-12-05 20:06:15 +07; 6min ago
+serg@serg-VirtualBox:~$ sudo ss -ntlp
+[sudo] password for serg:
+State   Recv-Q  Send-Q   Local Address:Port   Peer Address:Port Process
+LISTEN  0       128            0.0.0.0:22          0.0.0.0:*     users:(("sshd",pid=644,fd=3))
+LISTEN  0       511            0.0.0.0:80          0.0.0.0:*     users:(("nginx",pid=660,fd=6),("nginx",pid=659,fd=6))
+--------------------------------------------------------------------------------------------------------------------------
+3. Установить Apache.
+root@serg-VirtualBox:/etc/nginx# apt install apache2 -y
+ порт занят nginx
+root@serg-VirtualBox:/etc/nginx# apache2 -t
+[Tue Dec 05 20:22:04.902212 2023] [core:warn] [pid 5383] AH00111: Config variable ${APACHE_RUN_DIR} is not defined
+apache2: Syntax error on line 80 of /etc/apache2/apache2.conf: DefaultRuntimeDir must be a valid directory, absolute or relative to ServerRoot
+
+root@serg-VirtualBox:/etc/nginx# systemctl status apache2
+× apache2.service - The Apache HTTP Server
+     Loaded: loaded (/lib/systemd/system/apache2.service; enabled; vendor preset: enabled)
+     Active: failed (Result: exit-code) since Tue 2023-12-05 20:21:05 +07; 2min 21s ago
+
+
+root@serg-VirtualBox:/etc/nginx# root@serg-VirtualBox:/etc/nginx# nano /etc/apache2/sites-enabled/000-default.conf
+<VirtualHost *:8080>
+---------------------------------------------------------------------------------------------------------------------------------
+5. Настроить схему обратного прокси для Nginx (динамика - на Apache).
+root@serg-VirtualBox:~$ nano /etc/nginx/sites-available/example_nginx.conf
+server {
+        listen   80;
+        root /var/www/;
+        index index.php;
+ 
+        server_name example.com;
+        location / {
+                try_files $uri $uri/ /index.php$args;
+        }
+        location ~ \.php$ {
+                proxy_set_header X-Real-IP  $remote_addr;
+                proxy_set_header X-Forwarded-For $remote_addr;
+                proxy_set_header Host $host;
+                proxy_pass http://127.0.0.1:8080;
+        }
+        location ~ /\. {
+                #Запрещаем обращение к скрытым файлам
+                deny all;
+        }
+}
+root@serg-VirtualBox:~$ cd /etc/nginx/sites-enabled/
+root@serg-VirtualBox:~$ ln -s ../sites-available/example_nginx.conf example_nginx.conf
+root@serg-VirtualBox:~$ service nginx reload
+
+root@serg-VirtualBox:~$ nano /etc/apache2/ports.conf
+Listen 127.0.0.1:8080
+root@serg-VirtualBox:~$ nano /etc/apache2/sites-available/example-apache.conf
+<VirtualHost 127.0.0.1:8080>
+        DocumentRoot /var/www/
+        ServerName example.com
+        ErrorLog /var/log/apache2/example_error.log
+        CustomLog /var/log/apache2/example_access.log common
+        <Directory /var/www/>
+                Options FollowSymLinks
+                AllowOverride All
+                #Следующие 2 строки не будут работать в apache >= 2.4, необходимо использовать директиву Require all granted
+                #Order allow,deny
+                #Allow from all
+                Require all granted
+        </Directory>
+</VirtualHost>
+
+root@serg-VirtualBox:~$ a2ensite example-apache.conf && service apache2 start
+-----------------------------------------------------------------------------------------------------------------------------
+
+6. Установить MySQL. Создать новую базу данных и таблицу в ней.
+   Установка mysql
+serg@serg-VirtualBox:~$ sudo apt install mysql-server-8.0 -y
+[sudo] password for serg:
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+   заходим в mysql
+serg@serg-VirtualBox:~$ sudo mysql
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 8
+Server version: 8.0.35-0ubuntu0.22.04.1 (Ubuntu)
+
+Copyright (c) 2000, 2023, Oracle and/or its affiliates.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+  создаем базу данных
+mysql> CREATE DATABASE testuser;
+Query OK, 1 row affected (0,03 sec)
+  переходим в создааную базу данных
+mysql> use testuser
+Database changed
+   создаем таблицу
+mysql> CREATE TABLE users(id INT, email VARCHAR(100));
+Query OK, 0 rows affected (0,06 sec)
+   заполняем таблицу
+mysql> INSERT INTO users VALUES (1, 'user1@mail.ru'),(2, 'user2@mail.ru'),(3, 'user3@mail.ru');
+Query OK, 3 rows affected (0,03 sec)
+Records: 3  Duplicates: 0  Warnings: 0
+   проверяем 
+mysql> SELECT * FROM users\G;
+*************************** 1. row ***************************
+   id: 1
+email: user1@mail.ru
+*************************** 2. row ***************************
+   id: 2
+email: user2@mail.ru
+*************************** 3. row ***************************
+   id: 3
+email: user3@mail.ru
+3 rows in set (0,00 sec)
+
+ERROR:
+No query specified
+  выходим из mysql
+mysql> exit;
+--------------------------------------------------------------------------------------------------------------------
+
+7. * Установить пакет phpmyadmin и запустить его веб-интерфейс для управления MySQL.
+serg@serg-VirtualBox:~$ sudo apt install phpmyadmin php-mbstring php-zip php-gd php-json php-curl
+
+
+

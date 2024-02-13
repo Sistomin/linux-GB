@@ -1,0 +1,80 @@
+Урок 7. Запуск веб-приложения из контейнеров
+1. Переустановить операционную систему (по желанию, для дополнительной практики)
+2. Установить Docker.
+3. Запустить контейнер с Ubuntu.
+4. * Используя Dockerfile, собрать связку nginx + PHP-FPM в одном контейнере.
+
+2. Установить Docker.
+Устанавливаем докер
+serg@serg-VirtualBox:~$ sudo apt install docker.io -y
+[sudo] password for serg:
+  смотрим список контейнеров (пусто)
+serg@serg-VirtualBox:~$ sudo docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+  смотрим список образов (пусто)
+serg@serg-VirtualBox:~$ sudo docker images
+REPOSITORY   TAG       IMAGE ID   CREATED   SIZE
+--------------------------------------------------------------------
+3. Запустить контейнер с Ubuntu.
+  ищем образ (есть официальный)
+serg@serg-VirtualBox:~$ sudo docker search ubuntu
+NAME                             DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
+ubuntu                           Ubuntu is a Debian-based Linux operating sys…   16665     [OK]
+  скачаем образ
+serg@serg-VirtualBox:~$ sudo docker pull ubuntu
+Using default tag: latest
+latest: Pulling from library/ubuntu
+5e8117c0bd28: Pull complete
+Digest: sha256:8eab65df33a6de2844c9aefd19efe8ddb87b7df5e9185a4ab73af936225685bb
+Status: Downloaded newer image for ubuntu:latest
+docker.io/library/ubuntu:latest
+  запускаем
+serg@serg-VirtualBox:~$ sudo docker run -it ubuntu
+root@fa7e47a097d3:/#
+  выходим из контейнера
+root@fa7e47a097d3:/# exit
+exit
+serg@serg-VirtualBox:~$
+  проверяем что образ и контейнер есть
+serg@serg-VirtualBox:~$ sudo docker ps -a
+CONTAINER ID   IMAGE         COMMAND       CREATED          STATUS                      PORTS     NAMES
+fa7e47a097d3   ubuntu        "/bin/bash"   2 minutes ago    Exited (0) 38 seconds ago             great_mahavira
+7538f053c2b1   hello-world   "/hello"      11 minutes ago   Exited (0) 11 minutes ago             elegant_pike
+serg@serg-VirtualBox:~$ sudo docker images
+REPOSITORY    TAG       IMAGE ID       CREATED        SIZE
+ubuntu        latest    b6548eacb063   9 days ago     77.8MB
+hello-world   latest    9c7a54a9a43c   7 months ago   13.3kB
+----------------------------------------------------------------------------
+4. * Используя Dockerfile, собрать связку nginx + PHP-FPM в одном контейнере.
+  создадим файл содержащий инструкции для создания образа.
+serg@serg-VirtualBox:~$ nano Dockerfile
+  заполним файл следующим содержанием:
+FROM ubuntu:latest
+MAINTAINER GB_student
+RUN apt-get update
+RUN apt-get install nginx -y
+VOLUME "/var/www/html"
+EXPOSE 80
+CMD /usr/sbin/nginx -g "daemon off;"
+  собераем образ из инструкции которую прописали в файл
+serg@serg-VirtualBox:~$ sudo docker build -t my_nginx_image .
+....
+Successfully built 2d7660994505
+Successfully tagged my_nginx_image:latest
+serg@serg-VirtualBox:~$
+  проверяем появился ли образ (появился)
+serg@serg-VirtualBox:~$ sudo docker images
+REPOSITORY       TAG       IMAGE ID       CREATED              SIZE
+my_nginx_image   latest    2d7660994505   About a minute ago   180MB
+ubuntu           latest    b6548eacb063   9 days ago           77.8MB
+hello-world      latest    9c7a54a9a43c   7 months ago         13.3kB
+  запускаем наш образ на порту 8080
+serg@serg-VirtualBox:~$ sudo docker run -d -p 9000:80 my_nginx_image
+9a2a578e0c21a809b58819ca5093bf35fe283454f3826bdaffbe7896745fae68
+  проверяем
+serg@serg-VirtualBox:~$ sudo docker ps -a
+CONTAINER ID   IMAGE            COMMAND                  CREATED          STATUS                      PORTS                                   NAMES
+9a2a578e0c21   my_nginx_image   "/bin/sh -c '/usr/sb…"   19 seconds ago   Up 18 seconds               0.0.0.0:9000->80/tcp, :::9000->80/tcp   peaceful_brown
+fa7e47a097d3   ubuntu           "/bin/bash"              21 minutes ago   Exited (0) 19 minutes ago                                           great_mahavira
+7538f053c2b1   hello-world      "/hello"                 30 minutes ago   Exited (0) 30 minutes ago                                           elegant_pike
+serg@serg-VirtualBox:~$
